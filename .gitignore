@@ -1,6 +1,3 @@
+multiqc
 fastqc
-green_fastqc
-*.html
-green_multiqc_report_data
-multiqc_report_data
 trimmed

@@ -1,43 +1,38 @@
-configfile: "config.yaml"
+import os
+
+configfile: 'config.yaml'
+
+reads = ['1', '2']
+fastqc = 'fastqc'
+multiqc = 'multiqc'
+trimmed = 'trimmed'
+
 rule all:
     input:
-        'multiqc_report.html'
+        os.path.join(multiqc, trimmed, 'multiqc_report.html'),
+        os.path.join(multiqc, 'multiqc_report.html')
 
-rule green_fastqc:
+rule fastqc:
     input:
-        # fastq = expand('data/{sample}.fastq.gz, sample=config["samples"])'
-        expand('data/{sample}.fastq.gz', sample=config["samples"])
+        expand(os.path.join('data', '{sample}_R{read}_001.fastq.gz'), sample=config['samples'], read=reads)
     output:
-        expand('green_fastqc/{sample}_fastqc.html', sample=config["samples"]),
-        expand('green_fastqc/{sample}_fastqc.zip', sample=config["samples"])
+        expand(os.path.join(fastqc, '{sample}_R{read}_001_fastqc.html'), sample=config['samples'], read=reads)
     shell:
-        'fastqc {input} -o green_fastqc'
+        "fastqc {input} -o {fastqc}"
 
-rule green_MultiQC:
+rule multiqc:
     input:
-        expand('green_fastqc/{sample}_fastqc.zip', sample=config["samples"])
+        expand(os.path.join(fastqc, '{sample}_R{read}_001_fastqc.html'), sample=config['samples'], read=reads)
     output:
-        'green_multiqc_report.html'
+        os.path.join(multiqc, 'multiqc_report.html')
     shell:
-        'multiqc {input} -n {output}'
-
-# rule trimming:
-#     input:
-#         in1 = expand('data/{stem}_R1_001.fastq.gz', stem=config["stems"]),
-#         in2 = expand('data/{stem}_R2_001.fastq.gz', stem=config["stems"])
-#     output:
-#         out1 = expand('trimmed/{stem}_R1_001.fq', stem=config["stems"]),
-#         out2 = expand('trimmed/{stem}_R2_001.fq', stem=config["stems"])
-#     shell:
-#         'bbduk.sh in1={input.in1} in2={input.in2} out1={output.out1}' +
-#         ' out2={output.out2} ref=adapters.fa ktrim=r k=23 mink=11 hdist=1' +
-#         ' tpe tbo qtrim=r trimq=10'
+        "multiqc {fastqc} -o {multiqc}"
 
 rule trimming:
     input:
-        in1 = expand('data/{stem}.fastq.gz', stem=config["names"].split())
+        expand(os.path.join('data', '{sample}.fastq.gz'), sample=config['names'].split())
     output:
-        out1 = expand('trimmed/{stem}.fq', stem=config["names"].split())
+        expand(os.path.join(trimmed, '{sample}.fastq'), sample=config['names'].split())
     shell:"""
         bbduk.sh in1={input[0]} in2={input[1]} out1={output[0]} out2={output[1]} ref=adapters.fa ktrim=r k=23 mink=11 hdist=1 tpe tbo qtrim=r trimq=10
         bbduk.sh in1={input[2]} in2={input[3]} out1={output[2]} out2={output[3]} ref=adapters.fa ktrim=r k=23 mink=11 hdist=1 tpe tbo qtrim=r trimq=10
@@ -49,19 +44,18 @@ rule trimming:
         bbduk.sh in1={input[14]} in2={input[15]} out1={output[14]} out2={output[15]} ref=adapters.fa ktrim=r k=23 mink=11 hdist=1 tpe tbo qtrim=r trimq=10
         """
 
-rule fastqc:
+rule fastqc_trimmed:
     input:
-        expand('trimmed/{stem}.fq', stem=config["names"].split())
+        expand(os.path.join(trimmed, '{sample}_R{read}_001.fastq'), sample=config['samples'], read=reads)
     output:
-        expand('fastqc/{sample}_fastqc.html', sample=config["samples"]),
-        expand('fastqc/{sample}_fastqc.zip', sample=config["samples"])
+        expand(os.path.join(fastqc, trimmed, '{sample}_R{read}_001_fastqc.html'), sample=config['samples'], read=reads)
     shell:
-        'fastqc {input} -o fastqc'
+        "fastqc {input} -o {fastqc}/{trimmed}"
 
-rule MultiQC:
+rule multiqc_trimmed:
     input:
-        expand('fastqc/{sample}_fastqc.zip', sample=config["samples"])
+        expand(os.path.join(fastqc, trimmed, '{sample}_R{read}_001_fastqc.html'), sample=config['samples'], read=reads)
     output:
-        'multiqc_report.html'
+        os.path.join(multiqc, trimmed, 'multiqc_report.html')
     shell:
-        'multiqc {input} -n {output}'
+        "multiqc {fastqc} -o {multiqc}/{trimmed}"
